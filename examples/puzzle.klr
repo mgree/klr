@@ -1,0 +1,46 @@
+item : { key, wand, snitch }
+inventory : set item
+
+room : { foyer, library, dining, kitchen, pantry }
+
+pantry_door_locked : bool
+
+#       P
+#       |
+#   L-D-K
+#     |
+#     F
+
+commands : { north, south, east, west, unlock, get, cast }
+
+handle north:
+
+  when room = foyer: room := dining
+  when room = kitchen && !pantry_door_locked: room := pantry
+
+handle south:
+
+  when room = dining: room := foyer
+  when room = pantry && !pantry_door_locked: room := kitchen
+
+handle east:
+
+  when room = library: room := dining
+  when room = dining: room := kitchen
+
+handle west:
+
+  when room = kitchen: room := dining
+  when room = dining: room := library
+
+handle unlock:
+
+  when room = kitchen && pantry_door_locked && key in inventory: pantry_door_locked := false
+
+handle get:
+
+  when room = library && wand not in inventory: insert(inventory, wand)
+  when room = pantry && snitch not in inventory: insert(snitch, inventory)
+
+handle cast:
+  when room = kitchen && wand in inventory: insert(key, inventory)

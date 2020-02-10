@@ -1,0 +1,64 @@
+type location : { foyer, library, dining, kitchen, pantry, inventory }
+  deriving equal, copy
+
+# copy A to B: test each possibility of A, move to B -- also works if, e.g., A is decnat and B is incnat
+#
+# the A is B: test each possibility of A, ensure B is the same -- what does this look like for, e.g., nats?
+#
+# how does one define custom functions?
+
+location := foyer
+
+key_loc    := kitchen
+wand_loc   := library
+snitch_loc := pantry
+
+key_gettable := false
+
+pantry_door_locked := true
+
+#       P
+#       |
+#   L-D-K
+#     |
+#     F
+
+commands : { north, south, east, west, unlock, get, cast, drop }
+
+handle north:
+
+  when room = foyer: room := dining
+  when room = kitchen && !pantry_door_locked: room := pantry
+
+handle south:
+
+  when room = dining: room := foyer
+  when room = pantry && !pantry_door_locked: room := kitchen
+
+handle east:
+
+  when room = library: room := dining
+  when room = dining: room := kitchen
+
+handle west:
+
+  when room = kitchen: room := dining
+  when room = dining: room := library
+
+handle unlock:
+
+  when room = kitchen && pantry_door_locked && key_loc = inventory: pantry_door_locked := false
+
+handle get:
+
+  when the snitch_loc is room: snitch_loc := inventory
+  when the wand_loc is room: wand_loc := inventory
+  when the key_loc is room && key_gettable: snitch_loc := inventory
+
+handle cast:
+  when room = kitchen && key_loc = kitchen && wand_loc = inventory && key_gettable = false: key_gettable := true
+
+handle drop:
+  when snitch_loc = inventory: copy room to snitch_loc
+  when key_loc = inventory: copy room to key_loc
+  when wand_loc = inventory: copy room to wand_loc 

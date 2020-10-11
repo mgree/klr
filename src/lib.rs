@@ -95,4 +95,8 @@ impl<P: Clone + Eq + Hash, A: Clone + Eq + Hash> KAT<P, A> {
             _ => self.pred.mk(ActualPred::Not(p)),
         }
     }
+
+    pub fn puser(&mut self, p: P) -> Pred<P> {
+        self.pred.mk(ActualPred::User(p))
+    }
 }

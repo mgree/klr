@@ -1,0 +1,24 @@
+dist: xenial
+
+os:
+  - osx
+  - linux
+  - freebsd
+
+env:
+  - OCAML_VERSION=4.10
+    
+language: rust
+
+rust:
+  - stable
+  - beta
+  - nightly
+
+jobs:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+cache: 
+  - cargo

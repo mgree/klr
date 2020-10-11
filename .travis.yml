@@ -4,9 +4,6 @@ os:
   - osx
   - linux
   - freebsd
-
-env:
-  - OCAML_VERSION=4.10
     
 language: rust
 

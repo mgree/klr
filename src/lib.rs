@@ -1,13 +1,14 @@
 #[macro_use]
 extern crate hashconsing;
-use hashconsing::{HConsed, HConsign, HashConsign};
+use hashconsing::{HConsed, HashConsign};
 use std::hash::Hash;
 
 use std::fmt::Debug;
 
 pub type Var = String;
 
-pub type Expr = HConsed<ActualExpr>;
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Expr(HConsed<ActualExpr>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ActualExpr {
@@ -42,13 +43,24 @@ consign! {
     let EXPR = consign(37) for ActualExpr;
 }
 
-pub fn enat(n: usize) -> Expr {
-    EXPR.mk(ActualExpr::Nat(n))
+impl Expr {
+    pub fn get(&self) -> &ActualExpr {
+        self.0.get()
+    }
+
+    pub fn uid(&self) -> u64 {
+        self.0.uid()
+    }
+
+    pub fn nat(n: usize) -> Expr {
+        Expr(EXPR.mk(ActualExpr::Nat(n)))
+    }
+
+    pub fn var(v: Var) -> Expr {
+        Expr(EXPR.mk(ActualExpr::Var(v)))
+    }    
 }
 
-pub fn evar(v: Var) -> Expr {
-    EXPR.mk(ActualExpr::Var(v))
-}
 
 consign! {
     let PRED = consign(37) for ActualPred;
@@ -146,38 +158,22 @@ pub fn par(a1: Action, a2: Action) -> Action {
 
     use ActualAction::*;
     match (a1.get(), a2.get()) {
+        // push down predicates
+        (Pred(p1), Pred(p2)) => pred(ppar(p1.clone(), p2.clone())),
         // 0 + a = a + 0 = a for all actions a
         (_, Pred(p)) if p.get() == &ActualPred::Zero => a1,
         (Pred(p), _) if p.get() == &ActualPred::Zero => a2,
-        (Pred(p1), Pred(p2)) => pred(ppar(p1.clone(), p2.clone())),
-/* (* write 1 + p;p* as p* *)
-      | Pred {node=One; _}, Seq (p, ({node=Star q; _} as r))
-        when p.tag == q.tag ->
-          r
-      | Pred {node=One; _}, Seq (({node=Star q; _} as r), p) when p.tag == q.tag ->
-          r
-      | Seq (p, ({node=Star q; _} as r)), Pred {node=One; _} when p.tag == q.tag ->
-          r
-      | Seq (({node=Star q; _} as r), p), Pred {node=One; _} when p.tag == q.tag ->
-          r
-      (* rewrite x + ax == x;(1 + a) == x *)
-      | Seq ({node=Pred _; _}, p), _
-        when p.tag == y.tag ->
-          p
-      | Seq (p, {node=Pred _; _}), _ when p.tag == y.tag -> p
-      | _, Seq ({node=Pred _; _}, p) when p.tag == x.tag -> p
-      | _, Seq (p, {node=Pred _; _}) when p.tag == x.tag -> p
-      | _, _ -> hashcons_kat (Par (x, y))
-*/        
+        // TODO: 1 + a;a* = 1 + a*;a = a*;a + 1 = a;a* + 1 = a*
+        // TODO: a + pa = pa + a = a
         (_, _) => ACTION.mk(Par(a1, a2)),
     }
 }
 
-pub fn seq(a1: Action, a2: Action) -> Action {
+pub fn seq(_a1: Action, _a2: Action) -> Action {
     todo!("seq")
 }
 
-pub fn star(a: Action) -> Action {
+pub fn star(_a: Action) -> Action {
     todo!("star")
 }
 

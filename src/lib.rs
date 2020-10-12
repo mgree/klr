@@ -450,7 +450,7 @@ mod test {
                 ),
                 x.clone()
             )
-        ); 
+        );
         assert_eq!(
             xxs,
             Action::seq(
@@ -460,7 +460,7 @@ mod test {
                     Action::seq(x.clone(), Action::star(x.clone()))
                 )
             )
-        ); 
+        );
         assert_eq!(
             xxs,
             Action::seq(

@@ -96,7 +96,6 @@ impl Predicate {
         T: Into<Predicate>,
     {
         let p = p.into();
-        
         use ActualPredicate::*;
         match p.get() {
             One => Predicate::zero(),
@@ -145,11 +144,18 @@ impl Action {
         Action(ACTION.mk(ActualAction::Pred(p)))
     }
 
-    pub fn star<T>(_a: T) -> Action
+    pub fn star<T>(a: T) -> Action
     where
         T: Into<Action>,
     {
-        todo!("star")
+        let a = a.into();
+
+        use ActualAction::*;
+        match a.get() {
+            Pred(_) => Action::one(),
+            Star(_) => a,
+            _ => Action(ACTION.mk(ActualAction::Star(a))),
+        }
     }
 
     pub fn assign(v: Var, e: Expr) -> Action {
@@ -280,11 +286,35 @@ impl Semiring for Action {
         }
     }
 
-    fn seq<T>(_a1: T, _a2: T) -> Action
+    fn seq<T>(a1: T, a2: T) -> Action
     where
         T: Into<Action>,
     {
-        todo!("seq")
+        let a1 = a1.into();
+        let a2 = a2.into();
+
+        // 0;a = a;0 = 0 for all actions a
+        if a1.is_zero() {
+            return a1;
+        } else if a2.is_zero() {
+            return a2;
+        }
+
+        // 1;a = a;1 = a for all actions a
+        if a1.is_one() {
+            return a2;
+        } else if a2.is_one() {
+            return a1;
+        }
+
+        use ActualAction::*;
+        match (a1.get(), a2.get()) {
+            (Pred(p1), Pred(p2)) => Action::predicate(Predicate::seq(p1.clone(), p2.clone())),
+            // a*;a* = a* for all actions a
+            (Star(x1), Star(x2)) if x1 == x2 => a1,
+            // TODO 2020-10-11 KMT suggest x*; x; x* == x*; x * ..?! does that really mean (x*; x)* ?
+            (_, _) => Action(ACTION.mk(Seq(a1, a2))),
+        }
     }
 }
 
@@ -292,31 +322,22 @@ impl Semiring for Action {
 mod test {
     use super::*;
 
-    // 2020-10-11 MMG not sure we actually need this, but can't hurt
-    macro_rules! assert_same {
-        ($e1:expr, $e2:expr) => {
-            let (v1, v2) = ($e1, $e2);
-            assert_eq!(v1.uid(), v1.uid());
-            assert_eq!(v1, v2);
-        };
-    }
-
     #[test]
     fn smart_constructors_pone() {
-        assert_same!(
+        assert_eq!(
             Predicate::one(),
             Predicate::par(Predicate::one(), Predicate::zero())
         );
-        assert_same!(
+        assert_eq!(
             Predicate::one(),
             Predicate::par(Predicate::zero(), Predicate::one())
         );
-        assert_same!(Predicate::one(), Predicate::not(Predicate::zero()));
-        assert_same!(
+        assert_eq!(Predicate::one(), Predicate::not(Predicate::zero()));
+        assert_eq!(
             Predicate::one(),
             Predicate::not(Predicate::not(Predicate::one()))
         );
-        assert_same!(
+        assert_eq!(
             Predicate::one(),
             Predicate::seq(Predicate::one(), Predicate::one())
         );
@@ -324,26 +345,51 @@ mod test {
 
     #[test]
     fn smart_constructors_pzero() {
-        assert_same!(
+        assert_eq!(
             Predicate::zero(),
             Predicate::par(Predicate::zero(), Predicate::zero())
         );
-        assert_same!(Predicate::zero(), Predicate::not(Predicate::one()));
-        assert_same!(
+        assert_eq!(Predicate::zero(), Predicate::not(Predicate::one()));
+        assert_eq!(
             Predicate::zero(),
             Predicate::not(Predicate::not(Predicate::zero()))
         );
-        assert_same!(
+        assert_eq!(
             Predicate::zero(),
             Predicate::seq(Predicate::one(), Predicate::zero())
         );
-        assert_same!(
+        assert_eq!(
             Predicate::zero(),
             Predicate::seq(Predicate::zero(), Predicate::one())
         );
-        assert_same!(
+        assert_eq!(
             Predicate::zero(),
             Predicate::seq(Predicate::zero(), Predicate::zero())
         );
+    }
+
+    #[test]
+    fn smart_constructors_one() {
+        assert_eq!(Action::one(), Action::par(Action::one(), Action::zero()));
+        assert_eq!(Action::one(), Action::par(Action::zero(), Action::one()));
+        assert_eq!(Action::one(), Predicate::not(Predicate::zero()).into());
+        assert_eq!(
+            Action::one(),
+            Predicate::not(Predicate::not(Predicate::one())).into()
+        );
+        assert_eq!(Action::one(), Action::seq(Action::one(), Action::one()));
+    }
+
+    #[test]
+    fn smart_constructors_zero() {
+        assert_eq!(Action::zero(), Action::par(Action::zero(), Action::zero()));
+        assert_eq!(Action::zero(), Predicate::not(Predicate::one()).into());
+        assert_eq!(
+            Action::zero(),
+            Predicate::not(Predicate::not(Predicate::zero())).into()
+        );
+        assert_eq!(Action::zero(), Action::seq(Action::one(), Action::zero()));
+        assert_eq!(Action::zero(), Action::seq(Action::zero(), Action::one()));
+        assert_eq!(Action::zero(), Action::seq(Action::zero(), Action::zero()));
     }
 }

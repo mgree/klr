@@ -78,6 +78,20 @@ impl Predicate {
         self.0.uid()
     }
 
+    pub fn is_zero(&self) -> bool {
+        match self.get() {
+            ActualPredicate::Zero => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_one(&self) -> bool {
+        match self.get() {
+            ActualPredicate::Zero => true,
+            _ => false,
+        }
+    }
+
     pub fn one() -> Predicate {
         Predicate(PREDICATE.mk(ActualPredicate::One))
     }
@@ -161,6 +175,20 @@ impl Action {
         self.0.uid()
     }
 
+    pub fn is_zero(&self) -> bool {
+        match self.get() {
+            ActualAction::Pred(p) => p.is_zero(),
+            _ => false,
+        }
+    }
+
+    pub fn is_one(&self) -> bool {
+        match self.get() {
+            ActualAction::Pred(p) => p.is_one(),
+            _ => false,
+        }
+    }
+
     pub fn predicate(p: Predicate) -> Action {
         Action(ACTION.mk(ActualAction::Pred(p)))
     }
@@ -178,13 +206,18 @@ impl Action {
             return a1; 
         }
     
+        // 0 + a = a + 0 = a for all actions a
+        if a2.is_zero() {
+            return a1;
+        }
+        if a1.is_zero() {
+            return a2;
+        }
+
         use ActualAction::*;
         match (a1.get(), a2.get()) {
             // push down predicates
             (Pred(p1), Pred(p2)) => Action::predicate(Predicate::par(p1.clone(), p2.clone())),
-            // 0 + a = a + 0 = a for all actions a
-            (_, Pred(p)) if p.get() == &ActualPredicate::Zero => a1,
-            (Pred(p), _) if p.get() == &ActualPredicate::Zero => a2,
             // TODO: 1 + a;a* = 1 + a*;a = a*;a + 1 = a;a* + 1 = a*
             // TODO: a + pa = pa + a = a
             (_, _) => Action(ACTION.mk(Par(a1, a2))),
@@ -207,5 +240,13 @@ impl Action {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
 
-
+    #[test]
+    fn zero_par_id() {
+        assert_eq!(Predicate::one(), Predicate::par(Predicate::one(), Predicate::zero()));
+        assert_eq!(Predicate::one(), Predicate::par(Predicate::zero(), Predicate::one()));
+    }
+}

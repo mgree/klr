@@ -64,7 +64,6 @@ impl Expr {
     }    
 }
 
-
 consign! {
     let PREDICATE = consign(37) for ActualPredicate;
 }
@@ -244,9 +243,31 @@ impl Action {
 mod test {
     use super::*;
 
+    // 2020-10-11 MMG not sure we actually need this, but can't hurt
+    macro_rules! assert_same {
+        ($e1:expr, $e2:expr) => {
+            let (v1, v2) = ($e1, $e2);
+            assert_eq!(v1.uid(), v1.uid());
+            assert_eq!(v1, v2);
+        }
+    }
+
     #[test]
-    fn zero_par_id() {
-        assert_eq!(Predicate::one(), Predicate::par(Predicate::one(), Predicate::zero()));
-        assert_eq!(Predicate::one(), Predicate::par(Predicate::zero(), Predicate::one()));
+    fn smart_constructors_pone() {
+        assert_same!(Predicate::one(), Predicate::par(Predicate::one(), Predicate::zero()));
+        assert_same!(Predicate::one(), Predicate::par(Predicate::zero(), Predicate::one()));
+        assert_same!(Predicate::one(), Predicate::not(Predicate::zero()));
+        assert_same!(Predicate::one(), Predicate::not(Predicate::not(Predicate::one())));
+        assert_same!(Predicate::one(), Predicate::seq(Predicate::one(), Predicate::one()));
+    }
+
+    #[test]
+    fn smart_constructors_pzero() {
+        assert_same!(Predicate::zero(), Predicate::par(Predicate::zero(), Predicate::zero()));
+        assert_same!(Predicate::zero(), Predicate::not(Predicate::one()));
+        assert_same!(Predicate::zero(), Predicate::not(Predicate::not(Predicate::zero())));
+        assert_same!(Predicate::zero(), Predicate::seq(Predicate::one(), Predicate::zero()));
+        assert_same!(Predicate::zero(), Predicate::seq(Predicate::zero(), Predicate::one()));
+        assert_same!(Predicate::zero(), Predicate::seq(Predicate::zero(), Predicate::zero()));
     }
 }

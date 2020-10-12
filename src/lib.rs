@@ -6,7 +6,8 @@ use std::hash::Hash;
 
 use std::fmt::Debug;
 
-pub type Var = String;
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Var(String);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Expr(HConsed<ActualExpr>);
@@ -86,7 +87,7 @@ impl Predicate {
 
     pub fn is_one(&self) -> bool {
         match self.get() {
-            ActualPredicate::Zero => true,
+            ActualPredicate::One => true,
             _ => false,
         }
     }
@@ -138,6 +139,22 @@ impl Action {
             ActualAction::Pred(p) => p.is_one(),
             _ => false,
         }
+    }
+
+    fn is_predicate(&self) -> bool {
+        if let ActualAction::Pred(_) = self.get() {
+            return true;
+        }
+
+        return false;
+    }
+
+    fn is_star_of(&self, a: &Action) -> bool {
+        if let ActualAction::Star(x) = self.get() {
+            return x == a;
+        }
+
+        return false;
     }
 
     pub fn predicate(p: Predicate) -> Action {
@@ -280,8 +297,15 @@ impl Semiring for Action {
         match (a1.get(), a2.get()) {
             // push down predicates
             (Pred(p1), Pred(p2)) => Action::predicate(Predicate::par(p1.clone(), p2.clone())),
-            // TODO: 1 + a;a* = 1 + a*;a = a*;a + 1 = a;a* + 1 = a*
-            // TODO: a + pa = pa + a = a
+            // 1 + a;a* = a*;a + 1 =  a*
+            // NB we can ignore 1 + a*;a and a*;a + 1 because Action::seq normalizes a*;a to a;a*
+            (Pred(p), Seq(x, xs)) if p.is_one() && xs.is_star_of(x) => xs.clone(),
+            (Seq(x, xs), Pred(p)) if p.is_one() && xs.is_star_of(x) => xs.clone(),
+            // a + pa = pa + a = a + ap = ap + a = a
+            (a, Seq(p, ap)) if a == ap.get() && p.is_predicate() => a1,
+            (a, Seq(ap, p)) if a == ap.get() && p.is_predicate() => a1,
+            (Seq(p, ap), a) if a == ap.get() && p.is_predicate() => a2,
+            (Seq(ap, p), a) if a == ap.get() && p.is_predicate() => a2,
             (_, _) => Action(ACTION.mk(Par(a1, a2))),
         }
     }
@@ -312,7 +336,12 @@ impl Semiring for Action {
             (Pred(p1), Pred(p2)) => Action::predicate(Predicate::seq(p1.clone(), p2.clone())),
             // a*;a* = a* for all actions a
             (Star(x1), Star(x2)) if x1 == x2 => a1,
-            // TODO 2020-10-11 KMT suggest x*; x; x* == x*; x * ..?! does that really mean (x*; x)* ?
+            // normalize x*; x into x; x*
+            (Star(x1), _) if x1 == &a2 => Action(ACTION.mk(Seq(a2, a1))),
+            // x*; (x; x*) == (x; x*); x* == x; x*
+            // NB that x*; (x*; x) and (x*; x); x* are ruled out by the normalization above
+            (Star(x1), Seq(x21, x22)) if x1 == x21 && x22.is_star_of(x21) => a2,
+            (Seq(x11, x12), Star(x2)) if x11 == x2 && x12.is_star_of(x11) => a1,
             (_, _) => Action(ACTION.mk(Seq(a1, a2))),
         }
     }
@@ -391,5 +420,56 @@ mod test {
         assert_eq!(Action::zero(), Action::seq(Action::one(), Action::zero()));
         assert_eq!(Action::zero(), Action::seq(Action::zero(), Action::one()));
         assert_eq!(Action::zero(), Action::seq(Action::zero(), Action::zero()));
+    }
+
+    #[test]
+    fn smart_constructors_star() {
+        assert_eq!(Action::one(), Action::star(Predicate::one()));
+        assert_eq!(Action::one(), Action::star(Predicate::zero()));
+        assert_eq!(
+            Action::one(),
+            Action::star(Predicate::eq(Var("x".into()), Expr::nat(0)))
+        );
+
+        let x = Action::assign(Var("x".into()), Expr::nat(0));
+        let xs = Action::star(x.clone());
+
+        assert!(xs.is_star_of(&x));
+
+        let xxs = Action::seq(x.clone(), xs.clone());
+
+        assert_eq!(xxs, Action::seq(Action::star(x.clone()), x.clone()));
+
+        assert_eq!(xs, Action::par(Action::one(), xxs.clone()));
+        assert_eq!(
+            xxs,
+            Action::seq(
+                Action::par(
+                    Action::one(),
+                    Action::seq(x.clone(), Action::star(x.clone()))
+                ),
+                x.clone()
+            )
+        ); 
+        assert_eq!(
+            xxs,
+            Action::seq(
+                x.clone(),
+                Action::par(
+                    Action::one(),
+                    Action::seq(x.clone(), Action::star(x.clone()))
+                )
+            )
+        ); 
+        assert_eq!(
+            xxs,
+            Action::seq(
+                x.clone(),
+                Action::par(
+                    Action::seq(x.clone(), Action::star(x.clone())),
+                    Action::one()
+                )
+            )
+        );
     }
 }

@@ -92,6 +92,65 @@ impl Predicate {
         }
     }
 
+    pub fn one() -> Predicate {
+        Predicate(PREDICATE.mk(ActualPredicate::One))
+    }
+
+    pub fn zero() -> Predicate {
+        Predicate(PREDICATE.mk(ActualPredicate::Zero))
+    }
+
+    pub fn par<T>(p1: T, p2: T) -> Predicate
+    where
+        T: Into<Predicate>,
+    {
+        let p1 = p1.into();
+        let p2 = p2.into();
+
+        use ActualPredicate::*;
+        // p + p = p (for all predicates p)
+        if p1.uid() == p2.uid() {
+            return p1;
+        }
+        match (p1.get(), p2.get()) {
+            // 1 + p = p + 1 = 1, so return the 1 we have
+            (One, _) => p1,
+            (_, One) => p2,
+            // 0 + p = p + 0 = p, so return the p we have
+            (_, Zero) => p1,
+            (Zero, _) => p2,
+            (_, _) => Predicate(PREDICATE.mk(ActualPredicate::Par(p1, p2))),
+        }
+    }
+
+    pub fn seq<T>(p1: T, p2: T) -> Predicate
+    where
+        T: Into<Predicate>,
+    {
+        let p1 = p1.into();
+        let p2 = p2.into();
+
+        use ActualPredicate::*;
+        // p;p = p (for all predicates p)
+        if p1.uid() == p2.uid() {
+            return p1;
+        }
+        match (p1.get(), p2.get()) {
+            // 1;p = p;1 = p, so return the p we have
+            (One, _) => p2,
+            (_, One) => p1,
+            // 0;p = p;0 = 0, so return the 0 we have
+            (_, Zero) => p2,
+            (Zero, _) => p1,
+            // right associate
+            (Seq(p11, p12), Seq(_, _)) => {
+                let p12_p2 = Predicate::seq(p12.clone(), p2);
+                Predicate::seq(p11.clone(), p12_p2)
+            }
+            (_, _) => Predicate(PREDICATE.mk(ActualPredicate::Seq(p1, p2))),
+        }
+    }
+
     pub fn not<T>(p: T) -> Predicate
     where
         T: Into<Predicate>,
@@ -161,121 +220,15 @@ impl Action {
         Action(ACTION.mk(ActualAction::Pred(p)))
     }
 
-    pub fn star<T>(a: T) -> Action
-    where
-        T: Into<Action>,
-    {
-        let a = a.into();
-
-        use ActualAction::*;
-        match a.get() {
-            Pred(_) => Action::one(),
-            Star(_) => a,
-            _ => Action(ACTION.mk(ActualAction::Star(a))),
-        }
-    }
-
-    pub fn assign(v: Var, e: Expr) -> Action {
-        match e.get() {
-            ActualExpr::Var(v2) if &v == v2 => Action::one(),
-            _ => Action(ACTION.mk(ActualAction::Assign(v, e))),
-        }
-    }
-}
-
-impl From<Predicate> for Action {
-    fn from(p: Predicate) -> Self {
-        Action::predicate(p)
-    }
-}
-
-pub trait Semiring {
-    fn zero() -> Self;
-
-    fn one() -> Self;
-
-    fn par<T>(e1: T, e2: T) -> Self
-    where
-        T: Into<Self>,
-        Self: Sized;
-
-    fn seq<T>(e1: T, e2: T) -> Self
-    where
-        T: Into<Self>,
-        Self: Sized;
-}
-
-impl Semiring for Predicate {
-    fn one() -> Predicate {
-        Predicate(PREDICATE.mk(ActualPredicate::One))
-    }
-
-    fn zero() -> Predicate {
-        Predicate(PREDICATE.mk(ActualPredicate::Zero))
-    }
-
-    fn par<T>(p1: T, p2: T) -> Predicate
-    where
-        T: Into<Predicate>,
-    {
-        let p1 = p1.into();
-        let p2 = p2.into();
-
-        use ActualPredicate::*;
-        // p + p = p (for all predicates p)
-        if p1.uid() == p2.uid() {
-            return p1;
-        }
-        match (p1.get(), p2.get()) {
-            // 1 + p = p + 1 = 1, so return the 1 we have
-            (One, _) => p1,
-            (_, One) => p2,
-            // 0 + p = p + 0 = p, so return the p we have
-            (_, Zero) => p1,
-            (Zero, _) => p2,
-            (_, _) => Predicate(PREDICATE.mk(ActualPredicate::Par(p1, p2))),
-        }
-    }
-
-    fn seq<T>(p1: T, p2: T) -> Predicate
-    where
-        T: Into<Predicate>,
-    {
-        let p1 = p1.into();
-        let p2 = p2.into();
-
-        use ActualPredicate::*;
-        // p;p = p (for all predicates p)
-        if p1.uid() == p2.uid() {
-            return p1;
-        }
-        match (p1.get(), p2.get()) {
-            // 1;p = p;1 = p, so return the p we have
-            (One, _) => p2,
-            (_, One) => p1,
-            // 0;p = p;0 = 0, so return the 0 we have
-            (_, Zero) => p2,
-            (Zero, _) => p1,
-            // right associate
-            (Seq(p11, p12), Seq(_, _)) => {
-                let p12_p2 = Predicate::seq(p12.clone(), p2);
-                Predicate::seq(p11.clone(), p12_p2)
-            }
-            (_, _) => Predicate(PREDICATE.mk(ActualPredicate::Seq(p1, p2))),
-        }
-    }
-}
-
-impl Semiring for Action {
-    fn zero() -> Action {
+    pub fn zero() -> Action {
         Action::predicate(Predicate::zero())
     }
 
-    fn one() -> Action {
+    pub fn one() -> Action {
         Action::predicate(Predicate::one())
     }
 
-    fn par<T>(a1: T, a2: T) -> Action
+    pub fn par<T>(a1: T, a2: T) -> Action
     where
         T: Into<Action>,
     {
@@ -310,7 +263,7 @@ impl Semiring for Action {
         }
     }
 
-    fn seq<T>(a1: T, a2: T) -> Action
+    pub fn seq<T>(a1: T, a2: T) -> Action
     where
         T: Into<Action>,
     {
@@ -344,6 +297,33 @@ impl Semiring for Action {
             (Seq(x11, x12), Star(x2)) if x11 == x2 && x12.is_star_of(x11) => a1,
             (_, _) => Action(ACTION.mk(Seq(a1, a2))),
         }
+    }
+
+    pub fn star<T>(a: T) -> Action
+    where
+        T: Into<Action>,
+    {
+        let a = a.into();
+
+        use ActualAction::*;
+        match a.get() {
+            Pred(_) => Action::one(),
+            Star(_) => a,
+            _ => Action(ACTION.mk(ActualAction::Star(a))),
+        }
+    }
+
+    pub fn assign(v: Var, e: Expr) -> Action {
+        match e.get() {
+            ActualExpr::Var(v2) if &v == v2 => Action::one(),
+            _ => Action(ACTION.mk(ActualAction::Assign(v, e))),
+        }
+    }
+}
+
+impl From<Predicate> for Action {
+    fn from(p: Predicate) -> Self {
+        Action::predicate(p)
     }
 }
 

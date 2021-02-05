@@ -2,9 +2,9 @@ type item : { key, wand, snitch }
 inventory := {} : set item
 
 type room = { foyer, library, dining, kitchen, pantry }
-room := foyer
+room := foyer : room
 
-pantry_door_locked := true
+pantry_door_locked := true : bool
 
 #       P
 #       |

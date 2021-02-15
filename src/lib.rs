@@ -7,6 +7,37 @@ use std::hash::Hash;
 use std::fmt::Debug;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Type {
+    Bool,
+    Nat(NatMode),
+    Enum(EnumId),
+    Set(Box<Type>, ContainerMode),
+    Map(Box<Type>, Box<Type>, ContainerMode),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NatMode {
+    Inc,
+    Dec,
+    Fin(usize),
+}
+
+pub type EnumId = usize;
+
+pub type EnumTable = Vec<EnumInfo>;
+
+pub struct EnumInfo {
+    name: String,
+    labels: Vec<String>,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ContainerMode {
+    WriteVar,
+    ReadVar
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Var(String);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]

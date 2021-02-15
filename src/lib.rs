@@ -22,13 +22,26 @@ pub enum NatMode {
     Fin(usize),
 }
 
-pub type EnumId = usize;
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EnumId(usize);
 
 pub type EnumTable = Vec<EnumInfo>;
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LabelId(usize);
+
+pub type LabelTable = Vec<LabelInfo>;
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EnumInfo {
     name: String,
-    labels: Vec<String>,
+    labels: Vec<LabelId>,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LabelInfo {
+    name: String,
+    enum_id: EnumId,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -45,7 +58,12 @@ pub struct Expr(HConsed<ActualExpr>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ActualExpr {
+    Bool(bool),
     Nat(usize),
+    Enum(LabelId),
+    EmptySet,
+    EmptyMap,
+    Lookup(Box<ActualExpr>, Var), // var is map
     Var(Var),
 }
 
@@ -60,6 +78,7 @@ pub enum ActualPredicate {
     Seq(Predicate, Predicate),
     Not(Predicate),
     Eq(Var, Expr),
+    SetMember(Box<ActualExpr>, Var), // var is set
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -72,6 +91,8 @@ pub enum ActualAction {
     Seq(Action, Action),
     Star(Action),
     Assign(Var, Expr),
+    SetInsert(Var, Expr),
+    MapInsert(Var, Expr, Expr),
 }
 
 consign! {
